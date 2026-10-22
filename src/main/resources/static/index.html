@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Projetos</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 30px auto; padding: 0 16px; color: #222; }
+    h1 { margin-bottom: 4px; }
+    form { display: grid; gap: 10px; background: #f4f6f8; padding: 16px; border-radius: 8px; margin-bottom: 24px; }
+    label { display: grid; gap: 4px; font-size: 14px; }
+    input { padding: 8px; border: 1px solid #bbb; border-radius: 4px; font-size: 14px; }
+    button { padding: 10px; background: #2563eb; color: #fff; border: 0; border-radius: 4px; font-size: 15px; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; font-size: 14px; }
+    th { background: #e5e9ee; }
+    #msg { min-height: 20px; font-size: 14px; }
+    .erro { color: #b91c1c; }
+    .ok { color: #15803d; }
+  </style>
+</head>
+<body>
+  <h1>Projetos</h1>
+
+  <h2>Novo projeto</h2>
+  <form id="form">
+    <label>Descrição
+      <input type="text" id="descricao" required>
+    </label>
+    <label>Data de início
+      <input type="date" id="dataInicio" required>
+    </label>
+    <label>Data de fim (opcional)
+      <input type="date" id="dataFim">
+    </label>
+    <button type="submit">Inserir projeto</button>
+    <div id="msg"></div>
+  </form>
+
+  <h2>Projetos cadastrados</h2>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Descrição</th><th>Início</th><th>Fim</th><th>Funcionários</th></tr>
+    </thead>
+    <tbody id="lista"></tbody>
+  </table>
+
+  <script>
+    const API = '/api/projeto';
+    const msg = document.getElementById('msg');
+
+    function mostrar(texto, classe) {
+      msg.textContent = texto;
+      msg.className = classe;
+    }
+
+    function formatarData(d) {
+      if (!d) return '-';
+      const [a, m, dia] = d.split('-');
+      return dia + '/' + m + '/' + a;
+    }
+
+    async function listar() {
+      const tbody = document.getElementById('lista');
+      tbody.innerHTML = '';
+      try {
+        const resp = await fetch(API);
+        const projetos = await resp.json();
+        if (projetos.length === 0) {
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.colSpan = 5;
+          td.textContent = 'Nenhum projeto cadastrado.';
+          tr.appendChild(td);
+          tbody.appendChild(tr);
+          return;
+        }
+        for (const p of projetos) {
+          const nomes = p.funcionarios.map(f => f.nome).join(', ') || '-';
+          const tr = document.createElement('tr');
+          [p.id, p.descricao, formatarData(p.dataInicio), formatarData(p.dataFim), nomes]
+            .forEach(valor => {
+              const td = document.createElement('td');
+              td.textContent = valor;
+              tr.appendChild(td);
+            });
+          tbody.appendChild(tr);
+        }
+      } catch (e) {
+        mostrar('Erro ao carregar os projetos.', 'erro');
+      }
+    }
+
+    document.getElementById('form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const projeto = {
+        descricao: document.getElementById('descricao').value,
+        dataInicio: document.getElementById('dataInicio').value,
+        dataFim: document.getElementById('dataFim').value || null
+      };
+      try {
+        const resp = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(projeto)
+        });
+        if (resp.ok) {
+          mostrar('Projeto inserido com sucesso!', 'ok');
+          ev.target.reset();
+          listar();
+        } else {
+          const erro = await resp.json().catch(() => null);
+          mostrar(erro && erro.errors ? erro.errors.join(', ') : 'Erro ao inserir o projeto.', 'erro');
+        }
+      } catch (e) {
+        mostrar('Erro de conexão com o servidor.', 'erro');
+      }
+    });
+
+    listar();
+  </script>
+</body>
+</html>
